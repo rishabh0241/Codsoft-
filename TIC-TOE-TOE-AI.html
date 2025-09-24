@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tic-Tac-Toe AI (Unbeatable)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:#0f172a; color:#e6eef8; margin:0; }
+    .board { display:grid; grid-template-columns:repeat(3,120px); gap:8px; padding:20px; background:#0b1220; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.6); }
+    .cell { width:120px; height:120px; display:flex; align-items:center; justify-content:center; font-size:56px; cursor:pointer; background:#0b1a2b; border-radius:8px; user-select:none; transition:transform .08s; }
+    .cell:hover { transform:scale(1.02); }
+    .controls { margin-left:20px; display:flex; flex-direction:column; gap:10px; }
+    .panel { display:flex; gap:20px; align-items:center; }
+    button { padding:8px 12px; border-radius:8px; border: none; cursor:pointer; background:#0ea5e9; color:#04243a; font-weight:600; }
+    .small { font-size:14px; color:#a7c5df; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;align-items:flex-start;">
+    <div class="board" id="board"></div>
+    <div class="controls">
+      <div class="panel">
+        <button id="restart">Restart</button>
+        <button id="swap">Switch: You play X</button>
+      </div>
+      <div class="small" id="status">Click a cell to move. AI uses Minimax+Alpha-Beta (unbeatable).</div>
+      <div class="small">Tip: X goes first. Use "Switch" to choose who plays X.</div>
+    </div>
+  </div>
+
+<script>
+/*
+ Unbeatable Tic-Tac-Toe AI using Minimax with Alpha-Beta pruning.
+ Board: array of 9 cells. 'X', 'O', or null.
+ Score: +1 for AI win, -1 for human win, 0 for draw.
+*/
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const restartBtn = document.getElementById('restart');
+const swapBtn = document.getElementById('swap');
+
+let board = Array(9).fill(null);
+let human = 'X';
+let ai = 'O';
+let currentPlayer = 'X'; // player to move
+let gameOver = false;
+
+function createBoardUI() {
+  boardEl.innerHTML = '';
+  for (let i=0;i<9;i++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.dataset.index = i;
+    c.addEventListener('click', onCellClick);
+    c.textContent = board[i] || '';
+    boardEl.appendChild(c);
+  }
+}
+
+function onCellClick(e) {
+  if (gameOver) return;
+  const idx = parseInt(e.currentTarget.dataset.index);
+  if (board[idx]) return;
+  if (currentPlayer !== human) return; // wait for human turn
+  board[idx] = human;
+  currentPlayer = ai;
+  refresh();
+  const r = checkWinner(board);
+  if (r) return endGame(r);
+  // AI move after short delay for better UX
+  setTimeout(() => { aiMove(); }, 150);
+}
+
+function aiMove() {
+  if (gameOver) return;
+  // If board empty, choose center for speed
+  let move;
+  if (board.every(v => v === null)) {
+    move = 4;
+  } else {
+    move = bestMove(board, ai, human);
+  }
+  board[move] = ai;
+  currentPlayer = human;
+  refresh();
+  const r = checkWinner(board);
+  if (r) return endGame(r);
+}
+
+function endGame(result) {
+  gameOver = true;
+  if (result.winner === 'draw') {
+    statusEl.textContent = 'Draw!';
+  } else {
+    statusEl.textContent = (result.winner === human) ? 'You win! (unexpected)' : 'AI wins.';
+  }
+  // highlight winning cells
+  if (result.winner !== 'draw') {
+    result.line.forEach(i => {
+      boardEl.children[i].style.boxShadow = 'inset 0 0 0 4px rgba(14,165,233,0.15)';
+    });
+  }
+}
+
+function refresh() {
+  for (let i=0;i<9;i++) {
+    boardEl.children[i].textContent = board[i] || '';
+  }
+  if (!gameOver) {
+    statusEl.textContent = (currentPlayer === human) ? 'Your turn' : 'AI thinking...';
+  }
+}
+
+function restart() {
+  board = Array(9).fill(null);
+  gameOver = false;
+  currentPlayer = 'X';
+  statusEl.textContent = 'Click a cell to move.';
+  // clear styles
+  for (let i=0;i<9;i++) {
+    boardEl.children[i].style.boxShadow = '';
+  }
+  // If AI is X then AI should move first
+  if (ai === 'X') {
+    currentPlayer = ai;
+    refresh();
+    setTimeout(() => aiMove(), 120);
+  } else {
+    refresh();
+  }
+}
+
+/* Minimax with alpha-beta pruning
+   Returns an index (0..8) of best move for the `player` (AI).
+*/
+function bestMove(boardState, player, opponent) {
+  let bestScore = -Infinity;
+  let move = null;
+  const available = boardState.map((v,i)=>v?null:i).filter(v=>v!==null);
+  for (const i of available) {
+    boardState[i] = player;
+    const score = minimax(boardState, 0, false, -Infinity, Infinity, player, opponent);
+    boardState[i] = null;
+    if (score > bestScore) {
+      bestScore = score;
+      move = i;
+    }
+  }
+  return move;
+}
+
+/*
+ minimax(board, depth, isMaximizing, alpha, beta, aiSym, humanSym)
+ returns score: +1 (AI win), -1 (AI loss), 0 draw
+ We use depth if we wanted to prefer faster wins, but TicTacToe doesn't require it for correctness.
+*/
+function minimax(b, depth, isMax, alpha, beta, aiSym, humanSym) {
+  const result = checkWinner(b);
+  if (result) {
+    if (result.winner === aiSym) return 1;
+    if (result.winner === humanSym) return -1;
+    return 0; // draw
+  }
+
+  if (isMax) {
+    let maxEval = -Infinity;
+    for (let i=0;i<9;i++) if (!b[i]) {
+      b[i] = aiSym;
+      const evalScore = minimax(b, depth+1, false, alpha, beta, aiSym, humanSym);
+      b[i] = null;
+      maxEval = Math.max(maxEval, evalScore);
+      alpha = Math.max(alpha, evalScore);
+      if (beta <= alpha) break; // beta cutoff
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for (let i=0;i<9;i++) if (!b[i]) {
+      b[i] = humanSym;
+      const evalScore = minimax(b, depth+1, true, alpha, beta, aiSym, humanSym);
+      b[i] = null;
+      minEval = Math.min(minEval, evalScore);
+      beta = Math.min(beta, evalScore);
+      if (beta <= alpha) break; // alpha cutoff
+    }
+    return minEval;
+  }
+}
+
+/* Check winner or draw. Returns {winner: 'X'|'O'|'draw', line:[i,i,i]} or null if game ongoing */
+function checkWinner(b) {
+  const lines = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  for (const line of lines) {
+    const [a,b1,c] = line;
+    if (b[a] && b[a] === b[b1] && b[a] === b[c]) {
+      return { winner: b[a], line };
+    }
+  }
+  if (b.every(v=>v!==null)) return { winner:'draw', line:[] };
+  return null;
+}
+
+// Controls
+restartBtn.addEventListener('click', restart);
+swapBtn.addEventListener('click', () => {
+  // swap which symbol the human uses
+  if (human === 'X') { human = 'O'; ai = 'X'; swapBtn.textContent = 'Switch: You play O'; }
+  else { human = 'X'; ai = 'O'; swapBtn.textContent = 'Switch: You play X'; }
+  restart();
+});
+
+createBoardUI();
+refresh();
+// If AI is X at page load, let it move first:
+if (ai === 'X') setTimeout(() => aiMove(), 200);
+</script>
+</body>
+</html>
