@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie Recommendation System</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background:#f4f7fb;
+    padding:30px;
+  }
+  h1 { color:#0f172a; }
+  .box {
+    background:white;
+    border-radius:10px;
+    padding:20px;
+    max-width:600px;
+    margin:20px auto;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+  }
+  select, button {
+    padding:8px 12px;
+    margin-top:10px;
+    border-radius:6px;
+    border:1px solid #cbd5e1;
+    font-size:16px;
+  }
+  button {
+    background:#0ea5e9;
+    color:white;
+    border:none;
+    cursor:pointer;
+    margin-left:8px;
+  }
+  ul {
+    margin-top:20px;
+    list-style:disc;
+    padding-left:20px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Simple Movie Recommendation System</h1>
+<div class="box">
+  <p>Select a movie to get content-based recommendations:</p>
+  <select id="movieSelect"></select>
+  <button onclick="recommend()">Recommend</button>
+
+  <div id="results"></div>
+</div>
+
+<script>
+// ----- Sample Movie Dataset -----
+const movies = [
+  {title:"The Matrix",      genres:"sci-fi action"},
+  {title:"Inception",       genres:"sci-fi thriller"},
+  {title:"The Godfather",   genres:"crime drama"},
+  {title:"Interstellar",    genres:"sci-fi drama"},
+  {title:"Toy Story",       genres:"animation family"},
+  {title:"The Dark Knight", genres:"action crime drama"},
+  {title:"Pulp Fiction",    genres:"crime dark-comedy"},
+  {title:"Finding Nemo",    genres:"animation family adventure"}
+];
+
+// ----- Populate dropdown -----
+const select = document.getElementById('movieSelect');
+movies.forEach((m,i)=>{
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = m.title;
+  select.appendChild(opt);
+});
+
+// ----- Simple Content-based Similarity (Jaccard on genre words) -----
+function similarity(a, b) {
+  const setA = new Set(a.toLowerCase().split(/\W+/));
+  const setB = new Set(b.toLowerCase().split(/\W+/));
+  const intersection = [...setA].filter(x => setB.has(x)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return intersection / union;
+}
+
+function recommend() {
+  const idx = parseInt(select.value,10);
+  const base = movies[idx];
+  const scores = movies.map((m,i)=>{
+    if(i===idx) return {title:m.title, score:-1}; // skip self
+    return {title:m.title, score: similarity(base.genres, m.genres)};
+  });
+  scores.sort((a,b)=>b.score - a.score);
+  const top = scores.slice(0,3); // top 3
+  const resDiv = document.getElementById('results');
+  resDiv.innerHTML = `<h3>Recommendations similar to <em>${base.title}</em>:</h3>` +
+    `<ul>` + top.map(t=>`<li>${t.title} (similarity: ${t.score.toFixed(2)})</li>`).join('') + `</ul>`;
+}
+</script>
+
+</body>
+</html>
